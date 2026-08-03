@@ -5,8 +5,6 @@ import { redirect } from 'next/navigation';
 import { createAdminSession, revokeAdminSession, createJudgeSession, revokeJudgeSession } from '../lib/session';
 import { verifyJudgeCredentials } from './orchestrate';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
 /** Passwords that must never be accepted in any environment. */
 const KNOWN_DEFAULT_PASSWORDS = new Set([
   'coder',
@@ -23,15 +21,17 @@ const KNOWN_DEFAULT_PASSWORDS = new Set([
  * @returns Promise resolving to an object indicating authentication success or error message.
  */
 export async function login(password: string) {
-  if (!ADMIN_PASSWORD) {
+  const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+
+  if (!adminPassword) {
     return { success: false, error: 'ADMIN_PASSWORD environment variable is not set in deployment configuration.' };
   }
 
-  if (KNOWN_DEFAULT_PASSWORDS.has(ADMIN_PASSWORD)) {
+  if (KNOWN_DEFAULT_PASSWORDS.has(adminPassword.toLowerCase())) {
     return { success: false, error: 'ADMIN_PASSWORD is set to a placeholder or weak default value. Please set a custom ADMIN_PASSWORD in environment variables.' };
   }
 
-  if (password === ADMIN_PASSWORD) {
+  if (password === adminPassword) {
     const cookieStore = await cookies();
     const sessionToken = createAdminSession(60 * 60 * 2 * 1000);
     cookieStore.set('admin_session', sessionToken, {
