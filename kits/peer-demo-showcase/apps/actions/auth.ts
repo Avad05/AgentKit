@@ -24,11 +24,11 @@ const KNOWN_DEFAULT_PASSWORDS = new Set([
  */
 export async function login(password: string) {
   if (!ADMIN_PASSWORD) {
-    throw new Error('ADMIN_PASSWORD environment variable is not set.');
+    return { success: false, error: 'ADMIN_PASSWORD environment variable is not set in deployment configuration.' };
   }
 
   if (KNOWN_DEFAULT_PASSWORDS.has(ADMIN_PASSWORD)) {
-    throw new Error('ADMIN_PASSWORD is set to a known default or placeholder. Please configure a strong password.');
+    return { success: false, error: 'ADMIN_PASSWORD is set to a placeholder or weak default value. Please set a custom ADMIN_PASSWORD in environment variables.' };
   }
 
   if (password === ADMIN_PASSWORD) {
