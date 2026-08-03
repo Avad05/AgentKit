@@ -42,9 +42,14 @@ export default function JudgeDashboardPage() {
       try {
         setLoading(true);
         const [allSubmissions, allScores] = await Promise.all([getSubmissions(), getScores()]);
-        // Filter shortlisted projects
-        const shortlisted = allSubmissions.filter((p: any) => p.status === 'shortlisted' || p.status === 'winner');
-        setProjects(shortlisted);
+        // Filter shortlisted projects (shortlisted, winner, under_review)
+        const shortlisted = allSubmissions.filter((p: any) => {
+          const st = (p.status || '').toLowerCase();
+          return st === 'shortlisted' || st === 'winner' || st === 'under_review';
+        });
+        // If no projects are explicitly shortlisted yet, display all projects so judges can evaluate candidate submissions
+        const displayProjects = shortlisted.length > 0 ? shortlisted : allSubmissions;
+        setProjects(displayProjects);
         setScores(allScores);
 
         // Pre-fill default scores

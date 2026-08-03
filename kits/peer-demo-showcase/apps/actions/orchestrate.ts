@@ -290,6 +290,8 @@ export async function submitProject(
 
 const MOCK_UPVOTES: Record<string, number> = {};
 
+const DELETED_SUBMISSION_IDS = new Set<string>();
+
 /**
  * Retrieves all submitted projects from Lamatic Cloud D1 database or mock fallback.
  * @returns Promise resolving to an array of submission records.
@@ -328,7 +330,7 @@ export async function getSubmissions() {
       upvotes: MOCK_UPVOTES['2'],
       status: MOCK_STATUSES['2'] || 'submitted'
     }
-  ];
+  ].filter(sub => !DELETED_SUBMISSION_IDS.has(sub.id));
 
   if (!getSubmissionsFlowId) {
     console.warn('LAMATIC_SUBMISSIONS_MANAGER_FLOW_ID is not defined, returning mock data.');
@@ -350,7 +352,9 @@ export async function getSubmissions() {
   const result = response.result as { submissions?: any[] } | any[];
   const submissionsList = Array.isArray(result) ? result : (result?.submissions || []);
 
-  return submissionsList.map((sub: any, idx: number) => {
+  return submissionsList
+    .filter((sub: any) => !DELETED_SUBMISSION_IDS.has(sub.id?.toString()))
+    .map((sub: any, idx: number) => {
     const githubParts = (sub.github_url || '').split('|');
     const githubUrl = githubParts[0] || '';
     const hostedLink = githubParts[1] || '';
@@ -566,10 +570,13 @@ export async function addSponsor(name: string, description: string = '') {
 export async function deleteSubmission(id: string) {
   if (!id) throw new Error('Submission ID is required');
 
+  const strId = id.toString();
+  DELETED_SUBMISSION_IDS.add(strId);
+
   const deleteFlowId = process.env.LAMATIC_SUBMISSIONS_MANAGER_FLOW_ID || process.env.LAMATIC_DELETE_SUBMISSION_FLOW_ID;
   if (deleteFlowId) {
     try {
-      await lamaticClient.executeFlow(deleteFlowId, { action: 'delete', id: validateId(id) });
+      await lamaticClient.executeFlow(deleteFlowId, { action: 'delete', id: validateId(strId) });
     } catch (err: any) {
       console.warn('Lamatic deleteSubmission executeFlow failed:', err.message);
     }
