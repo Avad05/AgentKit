@@ -89,7 +89,14 @@ export default function AdminPage() {
         };
         setDeadline(formatIsoToLocalInput(configData.submission_deadline));
         setWinnerDeclarationTime(formatIsoToLocalInput(configData.winner_declaration_time));
-        setJudges((judgeList as any[]) || []);
+        
+        // Merge remote judge list with localStorage persistent judges so logout/refresh never deletes judges
+        const localCustomJudges = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('admin_custom_judges') || '[]') : [];
+        const fetchedJudges = (judgeList as any[]) || [];
+        const combinedJudges = [...fetchedJudges, ...localCustomJudges];
+        const uniqueJudges = combinedJudges.filter((j, idx, self) => idx === self.findIndex((t) => (t.id && t.id === j.id) || (t.name && t.name === j.name)));
+        setJudges(uniqueJudges);
+        
         setScores(scoreList || []);
       } catch (err: any) {
         console.error(err);
@@ -177,7 +184,14 @@ export default function AdminPage() {
     try {
       setAddingJudge(true);
       const res: any = await manageJudges('add', { name: newJudgeName.trim(), password: newJudgePassword });
-      setJudges((prev) => [...prev, res.judge]);
+      const newJudgeObj = res.judge || { id: Date.now().toString(), name: newJudgeName.trim(), password: newJudgePassword };
+      setJudges((prev) => [...prev.filter(j => j.id !== newJudgeObj.id), newJudgeObj]);
+      
+      if (typeof window !== 'undefined') {
+        const storedCustom = JSON.parse(localStorage.getItem('admin_custom_judges') || '[]');
+        localStorage.setItem('admin_custom_judges', JSON.stringify([...storedCustom.filter((j: any) => j.id !== newJudgeObj.id), newJudgeObj]));
+      }
+
       setNewJudgeName('');
       setNewJudgePassword('');
       toast.success(`Judge account for "${newJudgeName.trim()}" created.`);
@@ -192,6 +206,10 @@ export default function AdminPage() {
     try {
       await manageJudges('remove', { id });
       setJudges((prev) => prev.filter((j) => j.id !== id));
+      if (typeof window !== 'undefined') {
+        const storedCustom = JSON.parse(localStorage.getItem('admin_custom_judges') || '[]');
+        localStorage.setItem('admin_custom_judges', JSON.stringify(storedCustom.filter((j: any) => j.id !== id)));
+      }
       toast.success('Judge account removed.');
     } catch (err: any) {
       toast.error('Failed to remove judge account.');
@@ -472,8 +490,8 @@ export default function AdminPage() {
             No submissions found.
           </div>
         ) : (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-visible pb-40">
-            <div className="overflow-x-auto overflow-visible">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-visible">
+            <div className="w-full overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-800/50 border-b border-gray-800 text-gray-400 text-xs font-semibold uppercase tracking-wider">
